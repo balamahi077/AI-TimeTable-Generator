@@ -380,12 +380,44 @@ function App() {
     }
   };
 
-  const importTimetable = (file) => {
+  const importTimetable = async (file) => {
     try {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const data = JSON.parse(e.target.result);
         setTimetable(data);
+        
+        // If database is connected, save imported data
+        if (databaseConnected) {
+          // Save courses
+          for (const course of data.courses || []) {
+            await databaseService.saveCourse(course);
+          }
+          
+          // Save teachers
+          for (const teacher of data.teachers || []) {
+            await databaseService.saveTeacher(teacher);
+          }
+          
+          // Save rooms
+          for (const room of data.rooms || []) {
+            await databaseService.saveRoom(room);
+          }
+          
+          // Save timetable slots
+          for (const [key, slot] of Object.entries(data.slots || {})) {
+            const slotData = {
+              id: generateId(),
+              day: slot.day,
+              time: slot.time,
+              courseId: slot.course?.id,
+              teacherId: slot.teacher?.id,
+              roomId: slot.room?.id
+            };
+            await databaseService.saveTimetableSlot(slotData);
+          }
+        }
+        
         toast.success('Timetable imported successfully!');
       };
       reader.readAsText(file);
@@ -393,6 +425,14 @@ function App() {
       toast.error('Failed to import timetable');
       console.error('Import Error:', error);
     }
+  };
+
+  const handleExcelDataImported = async () => {
+    // Reload data from database after Excel import
+    if (databaseConnected) {
+      await loadDataFromDatabase();
+    }
+    toast.success('Excel data imported successfully!');
   };
 
   return (
@@ -481,7 +521,7 @@ function App() {
               element={
                 <ImportExport 
                   onExport={exportTimetable}
-                  onImport={importTimetable}
+                  onImport={handleExcelDataImported}
                 />
               } 
             />
