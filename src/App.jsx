@@ -16,6 +16,8 @@ import ImportExport from './components/ImportExport';
 import DatabaseConfig from './components/DatabaseConfig';
 import DatabaseViewer from './components/DatabaseViewer';
 import DatabaseQuery from './components/DatabaseQuery';
+import AITimetableGenerator from './components/AITimetableGenerator/AITimetableGenerator';
+import AdminPanel from './components/AdminPanel';
 
 // Services and Models
 import { Timetable, Course, Teacher, Room, generateId } from './models';
@@ -540,6 +542,14 @@ function App() {
             <Route 
               path="/database-query" 
               element={<DatabaseQuery />} 
+            />
+            <Route 
+              path="/ai-timetable-generator" 
+              element={<AITimetableGenerator />} 
+            />
+            <Route 
+              path="/admin-panel" 
+              element={<AdminPanel />} 
             />
           </Routes>
         </main>

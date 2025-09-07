@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Database,
   Eye,
-  Terminal
+  Terminal,
+  Zap,
+  Shield
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onToggle }) => {
@@ -25,7 +27,9 @@ const Sidebar = ({ isOpen, onToggle }) => {
     { path: '/teachers', icon: Users, label: 'Teachers' },
     { path: '/rooms', icon: Settings, label: 'Rooms' },
     { path: '/timetable', icon: Calendar, label: 'Timetable' },
+    { path: '/ai-timetable-generator', icon: Zap, label: 'AI Generator' },
     { path: '/ai-suggestions', icon: Brain, label: 'AI Suggestions' },
+    { path: '/admin-panel', icon: Shield, label: 'Admin Panel' },
     { path: '/database', icon: Database, label: 'Database Config' },
     { path: '/database-viewer', icon: Eye, label: 'View Database' },
     { path: '/database-query', icon: Terminal, label: 'SQL Query' },

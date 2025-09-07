@@ -105,6 +105,15 @@ class DatabaseService {
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
         }
+        
+        // AI Generated Timetables table
+        if (!db.objectStoreNames.contains('ai_timetables')) {
+          const aiTimetableStore = db.createObjectStore('ai_timetables', { keyPath: 'id' });
+          aiTimetableStore.createIndex('branchId', 'branchId', { unique: false });
+          aiTimetableStore.createIndex('semester', 'semester', { unique: false });
+          aiTimetableStore.createIndex('semesterType', 'semesterType', { unique: false });
+          aiTimetableStore.createIndex('generatedAt', 'generatedAt', { unique: false });
+        }
       };
     });
   }
@@ -174,6 +183,24 @@ class DatabaseService {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_timetables (
+        id TEXT PRIMARY KEY,
+        branchId TEXT NOT NULL,
+        branchName TEXT NOT NULL,
+        semester INTEGER NOT NULL,
+        semesterType TEXT NOT NULL,
+        academicYear TEXT NOT NULL,
+        effectiveDate TEXT NOT NULL,
+        institute TEXT NOT NULL,
+        department TEXT NOT NULL,
+        subjects TEXT NOT NULL,
+        teachers TEXT NOT NULL,
+        rooms TEXT NOT NULL,
+        slots TEXT NOT NULL,
+        generatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (branchId) REFERENCES branches (id)
       );
     `;
 
@@ -375,6 +402,106 @@ class DatabaseService {
         return stmt.run(slotId);
       }
     }
+  }
+
+  // AI Generated Timetable operations
+  async saveAITimetable(timetable) {
+    if (this.dbType === 'sqlite') {
+      if (typeof window !== 'undefined') {
+        return this.saveToIndexedDB('ai_timetables', timetable);
+      } else {
+        const stmt = this.db.prepare(`
+          INSERT OR REPLACE INTO ai_timetables 
+          (id, branchId, branchName, semester, semesterType, academicYear, effectiveDate, 
+           institute, department, subjects, teachers, rooms, slots, generatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `);
+        return stmt.run(
+          timetable.id,
+          timetable.branchId,
+          timetable.branchName,
+          timetable.semester,
+          timetable.semesterType,
+          timetable.academicYear,
+          timetable.effectiveDate,
+          timetable.institute,
+          timetable.department,
+          JSON.stringify(timetable.subjects),
+          JSON.stringify(timetable.teachers),
+          JSON.stringify(timetable.rooms),
+          JSON.stringify(timetable.slots)
+        );
+      }
+    }
+  }
+
+  async getAITimetables(filters = {}) {
+    if (this.dbType === 'sqlite') {
+      if (typeof window !== 'undefined') {
+        const allTimetables = await this.getAllFromIndexedDB('ai_timetables');
+        return this.filterAITimetables(allTimetables, filters);
+      } else {
+        let query = 'SELECT * FROM ai_timetables';
+        const conditions = [];
+        const params = [];
+
+        if (filters.branchId) {
+          conditions.push('branchId = ?');
+          params.push(filters.branchId);
+        }
+        if (filters.semester) {
+          conditions.push('semester = ?');
+          params.push(filters.semester);
+        }
+        if (filters.semesterType) {
+          conditions.push('semesterType = ?');
+          params.push(filters.semesterType);
+        }
+
+        if (conditions.length > 0) {
+          query += ' WHERE ' + conditions.join(' AND ');
+        }
+        query += ' ORDER BY generatedAt DESC';
+
+        const stmt = this.db.prepare(query);
+        const rows = stmt.all(...params);
+        return rows.map(row => ({
+          ...row,
+          subjects: JSON.parse(row.subjects),
+          teachers: JSON.parse(row.teachers),
+          rooms: JSON.parse(row.rooms),
+          slots: JSON.parse(row.slots)
+        }));
+      }
+    }
+  }
+
+  async getAITimetablesByBranch(branchId) {
+    return this.getAITimetables({ branchId });
+  }
+
+  async getAITimetablesBySemester(branchId, semester) {
+    return this.getAITimetables({ branchId, semester });
+  }
+
+  async deleteAITimetable(timetableId) {
+    if (this.dbType === 'sqlite') {
+      if (typeof window !== 'undefined') {
+        return this.deleteFromIndexedDB('ai_timetables', timetableId);
+      } else {
+        const stmt = this.db.prepare('DELETE FROM ai_timetables WHERE id = ?');
+        return stmt.run(timetableId);
+      }
+    }
+  }
+
+  filterAITimetables(timetables, filters) {
+    return timetables.filter(timetable => {
+      if (filters.branchId && timetable.branchId !== filters.branchId) return false;
+      if (filters.semester && timetable.semester !== filters.semester) return false;
+      if (filters.semesterType && timetable.semesterType !== filters.semesterType) return false;
+      return true;
+    });
   }
 
   // IndexedDB helper methods
