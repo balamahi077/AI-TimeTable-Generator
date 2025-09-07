@@ -31,12 +31,12 @@ export const downloadTimetableAsPDF = (timetable) => {
   doc.setFont('helvetica', 'bold');
   
   // Time column header
-  doc.text('Time', startX, startY);
+  doc.text('Time/Day', startX + 5, startY+5);
   
   // Day headers
   days.forEach((day, index) => {
-    const x = startX + (index + 1) * cellWidth;
-    doc.text(day, x, startY);
+    const x = startX + (index + 1) * cellWidth+5;
+    doc.text(day, x, startY+5);
   });
   
   // Draw timetable grid
@@ -66,7 +66,7 @@ export const downloadTimetableAsPDF = (timetable) => {
   
   // Draw borders
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.1);
+  doc.setLineWidth(0.3);
   
   // Vertical lines
   for (let i = 0; i <= days.length + 1; i++) {
@@ -123,7 +123,7 @@ export const downloadTimetableAsPDF = (timetable) => {
   });
   
   // Footer
-  const footerY = doc.internal.pageSize.height - 20;
+  const footerY = doc.internal.pageSize.height - 0;
   doc.setFontSize(8);
   doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, footerY);
   doc.text('AI TimeTable Generator', doc.internal.pageSize.width - 60, footerY);
