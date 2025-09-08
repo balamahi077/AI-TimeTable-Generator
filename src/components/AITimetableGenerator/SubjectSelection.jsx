@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Users, CheckCircle, Brain, Plus, X } from 'lucide-react';
 import { geminiService } from '../../services/geminiService';
+import { databaseService } from '../../services/databaseService';
 
 const SubjectSelection = ({ semesterConfig, onSubjectsSelected, onBack }) => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
@@ -76,13 +77,44 @@ const SubjectSelection = ({ semesterConfig, onSubjectsSelected, onBack }) => {
   };
 
   useEffect(() => {
-    const branchSubjects = semesterSubjects[semesterConfig.branch.id] || {};
-    const subjects = branchSubjects[semesterConfig.semester] || [];
-    setAvailableSubjects(subjects);
-    
-    // Generate AI suggestions for this branch and semester
-    generateAISubjectSuggestions();
+    const init = async () => {
+      // Try DB-driven subjects filtered by selected department/branch
+      const subjectsFromDb = await loadDepartmentCourses();
+      if (subjectsFromDb.length > 0) {
+        setAvailableSubjects(subjectsFromDb);
+      } else {
+        // Fallback to predefined list if DB empty
+        const branchSubjects = semesterSubjects[semesterConfig.branch.id] || {};
+        const subjects = branchSubjects[semesterConfig.semester] || [];
+        setAvailableSubjects(subjects);
+      }
+
+      // Generate AI suggestions for this branch and semester
+      generateAISubjectSuggestions();
+    };
+    init();
   }, [semesterConfig]);
+
+  const loadDepartmentCourses = async () => {
+    try {
+      const courses = await databaseService.getCourses();
+      if (!Array.isArray(courses)) return [];
+      const branchName = (semesterConfig.branch?.name || '').toLowerCase();
+      const branchCode = (semesterConfig.branch?.code || '').toLowerCase();
+      const filtered = courses.filter((c) => {
+        const dept = (c.department || '').toLowerCase();
+        return dept.includes(branchName) || dept.includes(branchCode);
+      });
+      return filtered.map((c) => ({
+        name: c.name,
+        code: c.code,
+        credits: c.credits ?? 3,
+        type: /lab|practical/i.test(c.name) ? 'Lab' : 'Theory',
+      }));
+    } catch {
+      return [];
+    }
+  };
 
   const generateAISubjectSuggestions = async () => {
     setLoading(true);

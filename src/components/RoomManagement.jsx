@@ -8,11 +8,12 @@ const RoomManagement = ({ rooms, onAddRoom, onUpdateRoom, onDeleteRoom }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
 
-  const roomTypes = [...new Set(rooms.map(room => room.type))];
+  const roomTypes = [...new Set((rooms || []).map(room => room?.type).filter(Boolean))];
 
-  const filteredRooms = rooms.filter(room => {
-    const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = !filterType || room.type === filterType;
+  const filteredRooms = (rooms || []).filter(room => {
+    const roomName = String(room?.name ?? '').toLowerCase();
+    const matchesSearch = roomName.includes(searchTerm.toLowerCase());
+    const matchesType = !filterType || room?.type === filterType;
     return matchesSearch && matchesType;
   });
 
@@ -259,7 +260,7 @@ const RoomManagement = ({ rooms, onAddRoom, onUpdateRoom, onDeleteRoom }) => {
                     <span>{room.capacity}</span>
                   </td>
                   <td className="py-3 px-4">
-                    {room.equipment.length > 0 ? (
+                    {Array.isArray(room.equipment) && room.equipment.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {room.equipment.map((equipment, index) => (
                           <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">

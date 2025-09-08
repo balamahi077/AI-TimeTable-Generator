@@ -38,9 +38,24 @@ const AITimetableGenerator = () => {
     setError(null);
 
     try {
-      // Get available teachers from database
-      const teachers = await databaseService.getTeachers();
-      const rooms = await databaseService.getRooms();
+      // Get available teachers/rooms with safe fallbacks so generation always works
+      let teachers = [];
+      let rooms = [];
+      try { teachers = await databaseService.getTeachers(); } catch {}
+      try { rooms = await databaseService.getRooms(); } catch {}
+      if (!Array.isArray(teachers) || teachers.length === 0) {
+        teachers = [
+          { id: 't1', name: 'Prof. Michael Chen', department: 'Computer Science', specialization: ['Computer Networks','DBMS','Operating Systems'] },
+          { id: 't2', name: 'Dr. Sarah Johnson', department: 'Computer Science', specialization: ['IOT','Machine Learning','AI'] },
+          { id: 't3', name: 'Prof. Anita Verma', department: 'Computer Science', specialization: ['Software Engineering','Algorithms'] },
+        ];
+      }
+      if (!Array.isArray(rooms) || rooms.length === 0) {
+        rooms = [
+          { id: 'r1', name: 'Lecture Hall A1', capacity: 100, type: 'Lecture Hall' },
+          { id: 'r2', name: 'Computer Lab 1', capacity: 30, type: 'Computer Lab' },
+        ];
+      }
 
       // Generate AI-powered timetable
       const timetable = await generateAITimetable(config, teachers, rooms);
@@ -76,6 +91,9 @@ Requirements:
 5. Schedule lab sessions appropriately
 6. Include project work sessions
 7. Ensure no conflicts
+8. HARD CONSTRAINT: A teacher must not be scheduled for more than 2 classes per day (max 2 hours/day)
+9. weekly 3 times a day for lab that continue for 2 hours
+10. saturday is off day(9:30 to 1:30).
 
 Return as structured JSON with complete timetable data.
 `;
@@ -85,6 +103,12 @@ Return as structured JSON with complete timetable data.
       
       // Parse AI response and create structured timetable
       const timetable = createStructuredTimetable(config, teachers, rooms, aiResponse);
+      
+      // If AI path produced no assignments, fallback to rule-based generation
+      const hasAnyAssignments = Object.values(timetable.slots).some(s => s.subject);
+      if (!hasAnyAssignments) {
+        return createRuleBasedTimetable(config, teachers, rooms);
+      }
       return timetable;
     } catch (error) {
       console.error('AI generation error:', error);
@@ -159,10 +183,31 @@ Return as structured JSON with complete timetable data.
       generatedAt: new Date().toISOString()
     };
 
-    // Simple rule-based assignment
+    // Helper: track per-teacher per-day assignments
+    const teacherDailyCount = {}; // { [day]: { [teacherId]: count } }
+    const incrementTeacherDay = (day, teacherId) => {
+      if (!teacherDailyCount[day]) teacherDailyCount[day] = {};
+      teacherDailyCount[day][teacherId] = (teacherDailyCount[day][teacherId] || 0) + 1;
+    };
+    const canTeachToday = (day, teacherId) => {
+      if (!teacherDailyCount[day]) return true;
+      return (teacherDailyCount[day][teacherId] || 0) < 2; // Max 2 classes per day
+    };
+
+    // Prefer teachers with matching specialization, otherwise any teacher under limit
+    const getPreferredTeachers = (subject) => {
+      const matching = teachers.filter(t => t.specialization?.some(spec =>
+        subject.name.toLowerCase().includes(spec.toLowerCase()) ||
+        spec.toLowerCase().includes(subject.name.toLowerCase())
+      ));
+      const others = teachers.filter(t => !matching.includes(t));
+      return [...matching, ...others];
+    };
+
+    // Rule-based assignment with per-day teacher limit (max 2)
     let subjectIndex = 0;
     days.forEach(day => {
-      timeSlots.forEach((time, timeIndex) => {
+      timeSlots.forEach((time) => {
         const key = `${day}-${time}`;
         if (time === '11:20-11:30' || time === '1:20-2:20') {
           // Break times
@@ -174,22 +219,42 @@ Return as structured JSON with complete timetable data.
             room: null,
             type: 'Break'
           };
-        } else if (subjectIndex < config.subjects.length) {
-          const subject = config.subjects[subjectIndex];
-          const teacher = findBestTeacher(subject, teachers);
-          const room = findBestRoom(subject, rooms);
-          
-          timetable.slots[key] = {
-            day,
-            time,
-            subject,
-            teacher,
-            room,
-            type: subject.type
-          };
-          
-          subjectIndex = (subjectIndex + 1) % config.subjects.length;
+          return;
         }
+
+        if (config.subjects.length === 0) return;
+
+        // Pick subject round-robin
+        const subject = config.subjects[subjectIndex];
+
+        // Choose a teacher respecting the 2-per-day limit
+        let assignedTeacher = null;
+        const candidates = getPreferredTeachers(subject);
+        for (const candidate of candidates) {
+          if (!candidate?.id) continue;
+          if (canTeachToday(day, candidate.id)) {
+            assignedTeacher = candidate;
+            break;
+          }
+        }
+
+        // If no candidate fits under the limit, leave unassigned for teacher/room
+        const room = findBestRoom(subject, rooms);
+
+        timetable.slots[key] = {
+          day,
+          time,
+          subject,
+          teacher: assignedTeacher,
+          room: assignedTeacher ? room : null,
+          type: subject.type
+        };
+
+        if (assignedTeacher?.id) {
+          incrementTeacherDay(day, assignedTeacher.id);
+        }
+
+        subjectIndex = (subjectIndex + 1) % config.subjects.length;
       });
     });
 

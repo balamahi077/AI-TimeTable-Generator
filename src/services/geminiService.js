@@ -1,11 +1,30 @@
 // Gemini API integration for AI-powered timetable generation
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'your-gemini-api-key-here';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-Flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 export class GeminiService {
   constructor() {
     this.apiKey = GEMINI_API_KEY;
+  }
+
+  // Extracts JSON from LLM responses that may include markdown fences or prose
+  static parseJsonFromText(text, defaultValue) {
+    try {
+      const str = String(text || '')
+        .replace(/^```(json)?/i, '')
+        .replace(/```$/i, '')
+        .trim();
+      // Try direct parse
+      try { return JSON.parse(str); } catch {}
+
+      // Extract first JSON object/array
+      const match = str.match(/[\[{][\s\S]*[\]}]/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch {}
+    return defaultValue;
   }
 
   async generateContent(prompt) {
@@ -41,7 +60,11 @@ export class GeminiService {
       }
 
       const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (typeof text !== 'string' || text.length === 0) {
+        return this.getFallbackResponse(prompt);
+      }
+      return text;
     } catch (error) {
       console.error('Gemini API Error:', error);
       console.warn('Falling back to predefined responses');
@@ -60,7 +83,10 @@ export class GeminiService {
       ]);
     }
     
-    if (prompt.includes('timetable suggestions')) {
+    if (
+      prompt.includes('timetable suggestions') ||
+      prompt.includes('You are an AI assistant specialized in creating optimal college timetables')
+    ) {
       return JSON.stringify({
         suggestions: [
           {
@@ -77,6 +103,31 @@ export class GeminiService {
           'Ensure adequate breaks between classes'
         ],
         alternative_schedules: []
+      });
+    }
+
+    // Fallback for constraint analysis when API key is missing
+    if (prompt.includes('Analyze the following college timetable data')) {
+      return JSON.stringify({
+        conflicts: [
+          {
+            type: 'teacher_conflict',
+            description: 'Some teachers may have back-to-back sessions across rooms.',
+            severity: 'medium',
+            affected_resources: ['Teachers', 'Rooms']
+          }
+        ],
+        constraints: [
+          {
+            type: 'workload_constraint',
+            description: 'Max 2 classes per teacher per day must be enforced.',
+            impact: 'Limits continuous scheduling for a single teacher.'
+          }
+        ],
+        recommendations: [
+          'Prefer afternoon slots for lab sessions',
+          'Avoid scheduling a teacher for more than two sessions per day'
+        ]
       });
     }
 
@@ -134,7 +185,12 @@ Format your response as a structured JSON with the following structure:
 
     try {
       const response = await this.generateContent(prompt);
-      return JSON.parse(response);
+      return GeminiService.parseJsonFromText(response, {
+        suggestions: [],
+        conflict_resolutions: [],
+        optimization_tips: [],
+        alternative_schedules: []
+      });
     } catch (error) {
       console.error('Error generating timetable suggestions:', error);
       return {
@@ -190,7 +246,11 @@ Format as JSON:
 
     try {
       const response = await this.generateContent(prompt);
-      return JSON.parse(response);
+      return GeminiService.parseJsonFromText(response, {
+        conflicts: [],
+        constraints: [],
+        recommendations: []
+      });
     } catch (error) {
       console.error('Error analyzing constraints:', error);
       return {
@@ -239,7 +299,10 @@ Format as JSON:
 
     try {
       const response = await this.generateContent(prompt);
-      return JSON.parse(response);
+      return GeminiService.parseJsonFromText(response, {
+        optimizations: [],
+        priority_changes: []
+      });
     } catch (error) {
       console.error('Error optimizing timetable:', error);
       return {
@@ -281,7 +344,12 @@ Format as JSON:
 
     try {
       const response = await this.generateContent(prompt);
-      return JSON.parse(response);
+      return GeminiService.parseJsonFromText(response, {
+        intent: 'question',
+        parameters: {},
+        response: 'I apologize, but I could not process your query.',
+        suggestions: []
+      });
     } catch (error) {
       console.error('Error processing natural language query:', error);
       return {

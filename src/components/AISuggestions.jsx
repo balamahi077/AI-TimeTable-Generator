@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Lightbulb, AlertTriangle, CheckCircle, RefreshCw, Download } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
+import { databaseService } from '../services/databaseService';
 
 const AISuggestions = ({ timetable, onGenerateSuggestions, loading }) => {
   const [suggestions, setSuggestions] = useState(null);
@@ -9,16 +10,43 @@ const AISuggestions = ({ timetable, onGenerateSuggestions, loading }) => {
   const [activeTab, setActiveTab] = useState('suggestions');
 
   useEffect(() => {
-    if (timetable.courses?.length > 0 || timetable.subjects?.length > 0) {
-      generateSuggestions();
-    }
+    generateSuggestions();
   }, [timetable]);
 
   const generateSuggestions = async () => {
     try {
-      const courses = timetable.courses || timetable.subjects || [];
-      const teachers = timetable.teachers || [];
-      const rooms = timetable.rooms || [];
+      let courses = timetable.courses || timetable.subjects || [];
+      let teachers = timetable.teachers || [];
+      let rooms = timetable.rooms || [];
+
+      // If incoming timetable lacks data, try loading from DB, with safe fallbacks
+      if (!Array.isArray(courses) || courses.length === 0) {
+        try { courses = await databaseService.getCourses(); } catch {}
+      }
+      if (!Array.isArray(teachers) || teachers.length === 0) {
+        try { teachers = await databaseService.getTeachers(); } catch {}
+      }
+      if (!Array.isArray(rooms) || rooms.length === 0) {
+        try { rooms = await databaseService.getRooms(); } catch {}
+      }
+      if (!Array.isArray(courses) || courses.length === 0) {
+        courses = [
+          { name: 'Cloud Computing', code: 'CSE602', credits: 3, department: 'CSE' },
+          { name: 'Machine Learning', code: 'CSE601', credits: 3, department: 'CSE' },
+        ];
+      }
+      if (!Array.isArray(teachers) || teachers.length === 0) {
+        teachers = [
+          { name: 'Dr. Sarah Johnson', department: 'CSE', specialization: ['AI','ML'] },
+          { name: 'Prof. Michael Chen', department: 'CSE', specialization: ['Cloud','Networks'] },
+        ];
+      }
+      if (!Array.isArray(rooms) || rooms.length === 0) {
+        rooms = [
+          { name: 'Lecture Hall A1', capacity: 100, type: 'Lecture Hall' },
+          { name: 'Computer Lab 1', capacity: 30, type: 'Computer Lab' },
+        ];
+      }
       const constraints = timetable.constraints || [];
 
       const [suggestionsData, analysisData] = await Promise.all([
@@ -40,6 +68,14 @@ const AISuggestions = ({ timetable, onGenerateSuggestions, loading }) => {
       setOptimizationTips(analysisData.recommendations);
     } catch (error) {
       console.error('Error generating AI suggestions:', error);
+      // Show a minimal fallback structure so the UI isn't empty
+      setSuggestions({
+        suggestions: [
+          { type: 'scheduling', description: 'Distribute core subjects across the week', priority: 'medium', implementation: 'Place major subjects on alternate days. Reserve afternoons for labs.' }
+        ],
+        conflict_resolutions: [],
+        optimization_tips: ['Group related subjects', 'Prefer afternoon slots for labs']
+      });
     }
   };
 

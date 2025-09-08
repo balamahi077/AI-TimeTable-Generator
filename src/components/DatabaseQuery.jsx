@@ -353,7 +353,7 @@ const DatabaseQuery = () => {
             <ul className="text-sm text-gray-600 space-y-1">
               <li>• <code>SELECT * FROM courses;</code></li>
               <li>• <code>SELECT COUNT(*) FROM teachers;</code></li>
-              <li>• <code>SELECT * FROM rooms WHERE capacity > 50;</code></li>
+              <li>• <code>SELECT * FROM rooms WHERE capacity &gt; 50;</code></li>
               <li>• <code>SELECT day, COUNT(*) FROM timetable_slots GROUP BY day;</code></li>
             </ul>
           </div>
