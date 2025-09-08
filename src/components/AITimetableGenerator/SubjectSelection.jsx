@@ -119,8 +119,24 @@ Format as JSON array with: name, code, credits, type (Theory/Lab/Project)
   };
 
   const parseAISuggestions = (aiResponse) => {
-    // In a real implementation, you'd parse the AI response properly
-    // For now, return fallback suggestions
+    try {
+      // Try to extract JSON from the AI response
+      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[0];
+        const suggestions = JSON.parse(jsonStr);
+        return suggestions.map(subject => ({
+          name: subject.name || subject.subject_name,
+          code: subject.code || subject.subject_code,
+          credits: subject.credits || 3,
+          type: subject.type || 'Theory'
+        }));
+      }
+    } catch (error) {
+      console.error('Error parsing AI suggestions:', error);
+    }
+    
+    // Fallback to predefined suggestions
     return getFallbackSuggestions();
   };
 

@@ -9,24 +9,29 @@ const AISuggestions = ({ timetable, onGenerateSuggestions, loading }) => {
   const [activeTab, setActiveTab] = useState('suggestions');
 
   useEffect(() => {
-    if (timetable.courses.length > 0) {
+    if (timetable.courses?.length > 0 || timetable.subjects?.length > 0) {
       generateSuggestions();
     }
   }, [timetable]);
 
   const generateSuggestions = async () => {
     try {
+      const courses = timetable.courses || timetable.subjects || [];
+      const teachers = timetable.teachers || [];
+      const rooms = timetable.rooms || [];
+      const constraints = timetable.constraints || [];
+
       const [suggestionsData, analysisData] = await Promise.all([
         geminiService.generateTimetableSuggestions(
-          timetable.courses,
-          timetable.teachers,
-          timetable.rooms,
-          timetable.constraints
+          courses,
+          teachers,
+          rooms,
+          constraints
         ),
         geminiService.analyzeConstraints(
-          timetable.courses,
-          timetable.teachers,
-          timetable.rooms
+          courses,
+          teachers,
+          rooms
         )
       ]);
 

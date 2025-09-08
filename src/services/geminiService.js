@@ -9,6 +9,12 @@ export class GeminiService {
   }
 
   async generateContent(prompt) {
+    // Check if API key is set
+    if (!this.apiKey || this.apiKey === 'your-gemini-api-key-here') {
+      console.warn('Gemini API key not set. Using fallback response.');
+      return this.getFallbackResponse(prompt);
+    }
+
     try {
       const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
         method: 'POST',
@@ -38,8 +44,43 @@ export class GeminiService {
       return data.candidates[0].content.parts[0].text;
     } catch (error) {
       console.error('Gemini API Error:', error);
-      throw new Error('Failed to generate content with Gemini API');
+      console.warn('Falling back to predefined responses');
+      return this.getFallbackResponse(prompt);
     }
+  }
+
+  getFallbackResponse(prompt) {
+    // Provide fallback responses based on prompt content
+    if (prompt.includes('suggest additional relevant subjects')) {
+      return JSON.stringify([
+        { name: 'Machine Learning', code: 'ML701', credits: 3, type: 'Theory' },
+        { name: 'Cloud Computing', code: 'CC702', credits: 3, type: 'Theory' },
+        { name: 'Data Science Lab', code: 'DS703', credits: 2, type: 'Lab' },
+        { name: 'Software Engineering', code: 'SE704', credits: 3, type: 'Theory' }
+      ]);
+    }
+    
+    if (prompt.includes('timetable suggestions')) {
+      return JSON.stringify({
+        suggestions: [
+          {
+            type: 'scheduling',
+            description: 'Optimize class distribution across the week',
+            priority: 'medium',
+            implementation: 'Spread core subjects evenly across different days to balance workload.'
+          }
+        ],
+        conflict_resolutions: [],
+        optimization_tips: [
+          'Schedule lab sessions in the afternoon',
+          'Keep related subjects close together',
+          'Ensure adequate breaks between classes'
+        ],
+        alternative_schedules: []
+      });
+    }
+
+    return 'AI suggestions are not available. Please set up your Gemini API key for full functionality.';
   }
 
   async generateTimetableSuggestions(courses, teachers, rooms, constraints) {
