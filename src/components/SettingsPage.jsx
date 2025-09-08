@@ -8,7 +8,7 @@ const SettingsPage = () => {
       '09:30-10:25', '10:25-11:20', '11:30-12:25', '12:25-01:20',
       '02:20-03:15', '03:15-04:10', '04:10-05:05'
     ],
-    maxHoursPerWeek: 40,
+    maxHoursPerWeek: 12,
     conflictThreshold: 0.8,
     autoSave: true,
     notifications: true
