@@ -92,8 +92,8 @@ Requirements:
 6. Include project work sessions
 7. Ensure no conflicts
 8. HARD CONSTRAINT: A teacher must not be scheduled for more than 2 classes per day (max 2 hours/day)
-9. weekly 3 times a day for lab that continue for 2 hours
-10. saturday is off day(9:30 to 1:30).
+9. weekly 3 times a day for lab that continue for 2 hours in a day.
+10. saturday is off day sehedule it only (9:30 to 1:30).
 
 Return as structured JSON with complete timetable data.
 `;
